@@ -1,0 +1,284 @@
+<html>
+<style type="text/css">
+	body {
+		margin: 0;
+		font-family: "Helvetica Neue","Helvetica","Arial",sans-serif;
+	}
+
+	#editor {
+		width: 70%;
+        max-width: 660px;
+		height: calc( 100% - 50px);
+		margin: 0 auto;
+		overflow: hidden;
+		position: relative;
+	}
+
+	#content {
+		display: block;
+		padding: 5px;
+		width: 100%;
+		height: 100%;
+		min-height: 100px;
+		border: none;
+		font-size: 1.2em;
+		line-height: 1.5em;
+		overflow-y: visible;
+	}
+
+	#preview {
+		display: none;
+		width: 100%;
+		font-size: 1.2em;
+		line-height: 1.5em;
+		position: absolute;
+		top: 0;
+		left: 0;
+		white-space: pre-wrap;
+		/* letter-spacing:5px; */
+		/* word-spacing:5px; */
+	}
+
+	.panel {
+		position: fixed;
+		bottom: 0;
+		text-align: center;
+		z-index: 1000;
+		background-color: white;
+		width: 100%;
+		height: 30px;
+		padding: 3px;
+		margin-bottom: 5px;
+		box-sizing: border-box;
+	}
+
+	.action {
+		display: inline-block;
+	}
+	.action button {
+		width: 60px;
+		margin-right: 5px;
+	}
+
+	.config-form {
+		display: inline-block;
+	}
+	.config-form input {
+		width: 60px;
+	}
+
+	#mask {
+		display: none;
+		position: absolute;
+		width: 100%;
+		height: 8em;
+		top: 150px;
+		left: 0;
+		/* border-color: red;
+		border-style: solid;
+		border-width: 1px 0 0; */
+		box-shadow: rgba(0, 0, 0, .5) 0 0 0 100vh;
+	}
+</style>
+
+<body>
+	<div class="panel">
+		<div class="action">
+			<button id="edit" onclick="editContent()">编辑</button>
+			<button id="show" onclick="previewContent()">预览</button>
+			<button id="play" onclick="startPlay()">开始</button>
+			<button id="stop" onclick="stopPlay()">暂停</button>
+			<button id="replay" onclick="replay()">重播</button>
+		</div>
+		<div class="config-form">
+			<label><span>字体大小:</span> <input id="font-size" step="0.1" min="0.1" onchange="changeFontSize(this)"
+					onkeydown="stopBubble(event)" type="number" value="1.2" /></label>
+			<label><span>行间距:</span> <input id="line-space" step="0.1" min="0.1" onchange="changeLineSpace(this)"
+					onkeydown="stopBubble(event)" type="number" value="1.5" /></label>
+			<label><span>播放速度:</span> <input id="play-speed" step="1" min="1" onchange="changePlaySpeed(this)"
+					onkeydown="stopBubble(event)" type="number" value="1" /></label>
+		</div>
+	</div>
+	<div id="editor">
+		<textarea id="content" placeholder="输入预览内容" onkeydown="stopBubble(event)"></textarea>
+		<div id="preview"></div>
+	</div>
+	<div id="mask"></div>
+</body>
+<script>
+
+	window.onload = function () {
+		console.log("onload")
+		elemEdit = document.getElementById("edit")
+		elemContent = document.getElementById("content")
+		elemPreview = document.getElementById("preview")
+		elemMask = document.getElementById("mask")
+		elemPlaySpeed = document.getElementById("play-speed")
+	}
+
+	function stopBubble(event) {
+		event.cancelBubble = true
+	}
+
+	function changeFontSize(elem) {
+		elemPreview.style.fontSize = elem.value + "em"
+	}
+
+	function changeLineSpace(elem) {
+		elemPreview.style.lineHeight = elem.value + "em"
+	}
+
+	function changePlaySpeed(elem) {
+		playSpeed = parseInt(elem.value)
+	}
+
+	function editContent() {
+		console.log("edit content")
+		elemMask.style.display = "none"
+
+		elemContent.style.display = "block"
+		elemPreview.style.display = "none"
+		elemContent.focus()
+	}
+
+	function previewContent() {
+		console.log("preview content")
+		elemContent.blur()
+		elemContent.style.display = "none"
+		elemPreview.style.display = "block"
+		elemMask.style.display = "none"
+		elemPreview.innerHTML = elemContent.value
+		elemPreview.style.top = 0
+		elemPreview.style.left = 0
+		playState = playStateWait
+	}
+
+	function startPlay() {
+
+		console.log(elemPreview.style.height)
+
+		console.log("start play")
+		if (playState == playStateWait) {
+
+			elemMask.style.display = "block"
+			viewTop = initViewTop + 120
+			playSpeed = parseInt(elemPlaySpeed.value)
+
+			playState = playStateDoing
+			cancelAnimationFrame(animationHandlerId)
+			loopPlay2()
+
+		} else if (playState == playStateStop) {
+			playState = playStateDoing
+			cancelAnimationFrame(animationHandlerId)
+			loopPlay2()
+		}
+	}
+
+	function replay() {
+		console.log("replay")
+		playState = playStateWait
+		startPlay()
+	}
+
+	function stopPlay() {
+		console.log("stop play")
+		playState = playStateStop
+		cancelAnimationFrame(animationHandlerId)
+	}
+
+	function loopPlay2() {
+		animationHandlerId = window.requestAnimationFrame(function () {
+			console.log("playSpeed: ", playSpeed)
+			if (playState == playStateDoing) {
+				if (viewTop <= initViewTop - elemPreview.offsetHeight) {
+					console.log("finish")
+					playState = playStateFinish
+
+				} else {
+					console.log("1111")
+					elemPreview.style.top = viewTop + "px"
+					viewTop -= (playSpeed / 2)
+					loopPlay2()
+				}
+			}
+		})
+	}
+
+
+	var viewIntervalId;  // interval 实现动画
+	var animationHandlerId; // animation 实现动画
+
+	var elemEdit;
+	var elemContent;
+	var elemPreview;
+	var elemMask;
+	var elemPlaySpeed;
+
+	var playSpeed = 1; // 播放速度
+
+	var initViewTop = 150; // 视图初始化高度
+	var viewTop = 0; // 视图高度
+
+
+	const playStateWait = 0;  // 未播放
+	const playStateDoing = 1;  // 播放中
+	const playStateStop = -1; // 暂停中
+	const playStateFinish = 2; // 播放完成
+
+	var playState = playStateWait;
+
+	document.body.onkeydown = function (event) {
+
+		switch (event.keyCode) {
+			case 27:
+				console.log("esc");
+				break;
+			case 32:
+				// 取消默认事件
+				console.log("space");
+				event.returnValue = false
+				if (playState == playStateDoing) {
+					console.log(111)
+					stopPlay()
+				} else if (playState == playStateStop) {
+					console.log(222)
+					startPlay()
+				}
+				break;
+			case 38:
+				console.log("up")
+				console.log(event)
+				if (playState != playStateDoing && viewTop < initViewTop + 100) {
+					viewTop += 10
+					elemPreview.style.top = viewTop + "px"
+				}
+				break;
+			case 40:
+				console.log("down")
+				if (playState != playStateDoing && Math.abs(viewTop) < elemPreview.offsetHeight - initViewTop) {
+					viewTop -= 10
+					elemPreview.style.top = viewTop + "px"
+				}
+				break;
+
+			case 37:
+				console.log("left")
+				if (playSpeed > 1) {
+					elemPlaySpeed.value = --playSpeed
+				}
+				break;
+
+			case 39:
+				console.log("right")
+				if (playSpeed < 5) {
+					elemPlaySpeed.value = ++playSpeed
+				}
+				break;
+			default:
+			// nothing
+		}
+	};
+</script>
+
+</html>
